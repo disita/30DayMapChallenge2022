@@ -1,0 +1,61 @@
+
+# Libraries ----
+library(tidyverse)
+library(janitor)
+library(sf)
+library(rnaturalearth)
+library(rnaturalearthdata)
+library(ggspatial)
+
+# Data ----
+
+# https://www.inegi.org.mx/app/descarga/?ti=6
+# Schools:
+df <- read_csv("denue_00_61_csv/conjunto_de_datos/denue_inegi_61_.csv") %>% 
+  clean_names() %>% 
+  filter(grepl('superior', nombre_act),
+         !grepl('media', nombre_act)) %>% 
+  select(id, latitud, longitud) %>% 
+  st_as_sf(coords = c("longitud", "latitud"), crs = 4326)
+
+# Mx states shp file:
+mex <- read_sf("Shp/México_Estados.shp") %>% 
+  st_transform(crs = 4326)
+
+# World countries shp file:
+world <- ne_countries(scale = "medium", returnclass = "sf")
+
+# Map ----
+
+df2 <- df %>% 
+  st_transform(crs = 4326) %>%
+  cbind(., st_coordinates(df %>% st_transform(crs = 4326)))
+
+ggplot() +
+  geom_sf(data = world) +
+  geom_sf(data = mex, fill = "antiquewhite", size = 1) +
+  geom_sf(data = df, colour = "red", size = 0.75, alpha = 0.01) +
+  stat_density_2d(data = df2, aes(X, Y), size = .5) +
+  coord_sf(xlim = c(-118, -85), ylim = c(13, 33), expand = FALSE) +
+  labs(title = "Mexican Universities", x = NULL, y = NULL) +
+  annotate(geom = "text", x = -90, y = 26, label = "Gulf of Mexico", 
+           fontface = "italic", color = "grey22", size = 5) + 
+  annotation_scale(location = "bl", width_hint = 0.5) + 
+  annotation_north_arrow(location = "bl", 
+                         which_north = "true", 
+                         pad_x = unit(0.75, "in"), 
+                         pad_y = unit(0.5, "in"), 
+                         style = north_arrow_fancy_orienteering) + 
+  annotate("text", x = Inf, y = -Inf, label = "@daniel_isita",
+           hjust=1.1, vjust=-1.1, col="#aeaca6", cex=2,
+           fontface = "bold", alpha = 0.85) +
+  theme_bw() +
+  theme(text = element_text(size = 14),
+        plot.title = element_text(hjust = 0.5),
+        panel.grid.major = element_line(color = gray(.5), 
+                                        linetype = "dashed", size = 0.5), 
+        panel.background = element_rect(fill = "aliceblue"))
+
+# Save image:
+ggsave('escuelas.png', dpi = 1000,
+       type = "cairo-png")
